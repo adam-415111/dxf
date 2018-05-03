@@ -1678,7 +1678,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 var ALL_BLACK = true; // Paint all lines black
 var USE_STROKE_PERCENT = true;
-var STROKE_WIDTH_PERCENT = 0.5; // Stroke width relative to viewport
+var STROKE_WIDTH_PERCENT = 0.3; // Stroke width relative to viewport
 var STROKE_WIDTH_ABS = 10; // Stroke width absolute value
 
 var polylineToPath = function polylineToPath(rgb, polyline) {
