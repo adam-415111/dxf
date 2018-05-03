@@ -6,6 +6,8 @@ import entityToPolyline from './entityToPolyline'
 import colors from './util/colors'
 import logger from './util/logger'
 
+const ALL_BLACK = 1; // Paint all lines black
+
 const polylineToPath = (rgb, polyline) => {
   const color24bit = rgb[2] | (rgb[1] << 8) | (rgb[0] << 16)
   let prepad = color24bit.toString(16)
@@ -14,8 +16,11 @@ const polylineToPath = (rgb, polyline) => {
   }
   let hex = '#' + prepad
 
+  if(ALL_BLACK) {
+    hex = '#000000'
+  }
   // SVG is white by default, so make white lines black
-  if (hex === '#ffffff') {
+  else if (hex === '#ffffff') {
     hex = '#000000'
   }
 
