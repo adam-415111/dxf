@@ -8,7 +8,7 @@ import logger from './util/logger'
 
 const ALL_BLACK = true // Paint all lines black
 const USE_STROKE_PERCENT = true
-const STROKE_WIDTH_PERCENT = 0.5 // Stroke width relative to viewport
+const STROKE_WIDTH_PERCENT = 0.3 // Stroke width relative to viewport
 const STROKE_WIDTH_ABS = 10 // Stroke width absolute value
 
 const polylineToPath = (rgb, polyline) => {
