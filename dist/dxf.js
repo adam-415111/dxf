@@ -1676,7 +1676,10 @@ var _logger2 = _interopRequireDefault(_logger);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var ALL_BLACK = 1; // Paint all lines black
+var ALL_BLACK = true; // Paint all lines black
+var USE_STROKE_PERCENT = true;
+var STROKE_WIDTH_PERCENT = 0.5; // Stroke width relative to viewport
+var STROKE_WIDTH_ABS = 10; // Stroke width absolute value
 
 var polylineToPath = function polylineToPath(rgb, polyline) {
   var color24bit = rgb[2] | rgb[1] << 8 | rgb[0] << 16;
@@ -1699,7 +1702,7 @@ var polylineToPath = function polylineToPath(rgb, polyline) {
     acc += point[0] + ',' + point[1];
     return acc;
   }, '');
-  return '<path fill="none" stroke="' + hex + '" stroke-width="0.1%" d="' + d + '"/>';
+  return USE_STROKE_PERCENT ? '<path fill="none" stroke="' + hex + '" stroke-width="' + STROKE_WIDTH_PERCENT + '%" d="' + d + '"/>' : '<path fill="none" stroke="' + hex + '" stroke-width="' + STROKE_WIDTH_ABS + '" d="' + d + '"/>';
 };
 
 /**
