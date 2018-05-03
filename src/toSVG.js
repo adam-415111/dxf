@@ -6,7 +6,10 @@ import entityToPolyline from './entityToPolyline'
 import colors from './util/colors'
 import logger from './util/logger'
 
-const ALL_BLACK = 1; // Paint all lines black
+const ALL_BLACK = true // Paint all lines black
+const USE_STROKE_PERCENT = true
+const STROKE_WIDTH_PERCENT = 0.5 // Stroke width relative to viewport
+const STROKE_WIDTH_ABS = 10 // Stroke width absolute value
 
 const polylineToPath = (rgb, polyline) => {
   const color24bit = rgb[2] | (rgb[1] << 8) | (rgb[0] << 16)
@@ -29,7 +32,8 @@ const polylineToPath = (rgb, polyline) => {
     acc += point[0] + ',' + point[1]
     return acc
   }, '')
-  return '<path fill="none" stroke="' + hex + '" stroke-width="0.1%" d="' + d + '"/>'
+  return USE_STROKE_PERCENT ? '<path fill="none" stroke="' + hex + '" stroke-width="' + STROKE_WIDTH_PERCENT + '%" d="' + d + '"/>'
+    : '<path fill="none" stroke="' + hex + '" stroke-width="' + STROKE_WIDTH_ABS + '" d="' + d + '"/>'
 }
 
 /**
