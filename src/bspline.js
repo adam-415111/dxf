@@ -7,12 +7,10 @@ function interpolate(t, degree, points, knots, weights, result) {
   var d = points[0].length; // point dimensionality
 
   if(degree < 1) {
-    degree = 1;
     console.log('Warning: Degree must be at least 1 (linear). Setting to 1.');
   }
   if(degree > (n-1)) {
-    degree = n-1;
-    console.log('Warning: Degree must be less than or equal to point count - 1. Setting to n-1.');
+    console.log('Warning: Degree must be less than or equal to point count - 1.');
   }
 
   if(!weights) {
