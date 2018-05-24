@@ -28,7 +28,7 @@ function interpolate(t, degree, points, knots, weights, result) {
       knots[i] = i;
     }
   } else {
-    if(knots.length !== n+degree+1) throw new Error('bad knot vector length');
+    if(knots.length !== n+degree+1) console.log('Warning: bad knot vector length');
   }
 
   var domain = [
