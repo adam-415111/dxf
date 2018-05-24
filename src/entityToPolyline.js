@@ -1,6 +1,7 @@
 'use strict'
 
-const bspline = require('b-spline')
+//const bspline = require('b-spline')
+const bspline = require('./bspline.js')
 
 const logger = require('./util/logger')
 
