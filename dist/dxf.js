@@ -1,4 +1,4 @@
-(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.dxf = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.dxf = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -94,12 +94,104 @@ var BoundingBox = function () {
 
 exports.default = BoundingBox;
 },{}],2:[function(require,module,exports){
+'use strict';
+
+function interpolate(t, degree, points, knots, weights, result) {
+
+  var i, j, s, l; // function-scoped iteration variables
+  var n = points.length; // points count
+  var d = points[0].length; // point dimensionality
+
+  if (degree < 1) {
+    degree = 1;
+    console.log('Warning: Degree must be at least 1 (linear). Setting to 1.');
+  }
+  if (degree > n - 1) {
+    degree = n - 1;
+    console.log('Warning: Degree must be less than or equal to point count - 1.');
+  }
+
+  if (!weights) {
+    // build weight vector of length [n]
+    weights = [];
+    for (i = 0; i < n; i++) {
+      weights[i] = 1;
+    }
+  }
+
+  if (!knots) {
+    // build knot vector of length [n + degree + 1]
+    var knots = [];
+    for (i = 0; i < n + degree + 1; i++) {
+      knots[i] = i;
+    }
+  } else {
+    if (knots.length !== n + degree + 1) console.log('Warning: bad knot vector length');
+  }
+
+  var domain = [degree, knots.length - 1 - degree];
+
+  // remap t to the domain where the spline is defined
+  var low = knots[domain[0]];
+  var high = knots[domain[1]];
+  t = t * (high - low) + low;
+
+  if (t < low) {
+    t = low;
+    console.log('Warning: Out of bounds!');
+  } else if (t > high) {
+    t = high;
+    console.log('Warning: Out of bounds!');
+  }
+
+  // find s (the spline segment) for the [t] value provided
+  for (s = domain[0]; s < domain[1]; s++) {
+    if (t >= knots[s] && t <= knots[s + 1]) {
+      break;
+    }
+  }
+
+  // convert points to homogeneous coordinates
+  var v = [];
+  for (i = 0; i < n; i++) {
+    v[i] = [];
+    for (j = 0; j < d; j++) {
+      v[i][j] = points[i][j] * weights[i];
+    }
+    v[i][d] = weights[i];
+  }
+
+  // l (level) goes from 1 to the curve degree + 1
+  var alpha;
+  for (l = 1; l <= degree + 1; l++) {
+    // build level l of the pyramid
+    for (i = s; i > s - degree - 1 + l; i--) {
+      alpha = (t - knots[i]) / (knots[i + degree + 1 - l] - knots[i]);
+
+      // interpolate each component
+      for (j = 0; j < d + 1; j++) {
+        v[i][j] = (1 - alpha) * v[i - 1][j] + alpha * v[i][j];
+      }
+    }
+  }
+
+  // convert back to cartesian and return
+  var result = result || [];
+  for (i = 0; i < d; i++) {
+    result[i] = v[s][i] / v[s][d];
+  }
+
+  return result;
+}
+
+module.exports = interpolate;
+},{}],3:[function(require,module,exports){
 "use strict";
 
 module.exports = {
   verbose: false
 };
-},{}],3:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 'use strict';
 
 var cloneDeep = require('lodash.clonedeep');
@@ -154,10 +246,12 @@ module.exports = function (parseResult) {
 
   return gatherEntities(parseResult.entities, []);
 };
-},{"./util/logger":27,"lodash.clonedeep":39}],4:[function(require,module,exports){
+},{"./util/logger":28,"lodash.clonedeep":37}],5:[function(require,module,exports){
 'use strict';
 
-var bspline = require('b-spline');
+//const bspline = require('b-spline')
+
+var bspline = require('./bspline.js');
 
 var logger = require('./util/logger');
 
@@ -324,7 +418,7 @@ module.exports = function (entity) {
   }
   return applyTransforms(polyline, entity.transforms);
 };
-},{"./util/createArcForLWPolyline":26,"./util/logger":27,"b-spline":28}],5:[function(require,module,exports){
+},{"./bspline.js":2,"./util/createArcForLWPolyline":27,"./util/logger":28}],6:[function(require,module,exports){
 'use strict';
 
 module.exports = function (entities) {
@@ -337,7 +431,7 @@ module.exports = function (entities) {
     return acc;
   }, {});
 };
-},{}],6:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -403,7 +497,7 @@ exports.default = function (tuples) {
 
   return blocks;
 };
-},{"./entities":7}],7:[function(require,module,exports){
+},{"./entities":8}],8:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -517,7 +611,7 @@ exports.default = function (tuples) {
 
   return entities;
 };
-},{"../util/logger":27,"./entity/arc":8,"./entity/circle":9,"./entity/ellipse":11,"./entity/insert":12,"./entity/line":13,"./entity/lwpolyline":14,"./entity/mtext":15,"./entity/point":16,"./entity/polyline":17,"./entity/solid":18,"./entity/spline":19,"./entity/vertex":20}],8:[function(require,module,exports){
+},{"../util/logger":28,"./entity/arc":9,"./entity/circle":10,"./entity/ellipse":12,"./entity/insert":13,"./entity/line":14,"./entity/lwpolyline":15,"./entity/mtext":16,"./entity/point":17,"./entity/polyline":18,"./entity/solid":19,"./entity/spline":20,"./entity/vertex":21}],9:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -572,7 +666,7 @@ var process = exports.process = function process(tuples) {
 };
 
 exports.default = { TYPE: TYPE, process: process };
-},{"./common":10}],9:[function(require,module,exports){
+},{"./common":11}],10:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -616,7 +710,7 @@ var process = exports.process = function process(tuples) {
 };
 
 exports.default = { TYPE: TYPE, process: process };
-},{"./common":10}],10:[function(require,module,exports){
+},{"./common":11}],11:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -670,7 +764,7 @@ exports.default = function (type, value) {
       return {};
   }
 };
-},{}],11:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -729,7 +823,7 @@ var process = exports.process = function process(tuples) {
 };
 
 exports.default = { TYPE: TYPE, process: process };
-},{"./common":10}],12:[function(require,module,exports){
+},{"./common":11}],13:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -806,7 +900,7 @@ var process = exports.process = function process(tuples) {
 };
 
 exports.default = { TYPE: TYPE, process: process };
-},{"./common":10}],13:[function(require,module,exports){
+},{"./common":11}],14:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -861,7 +955,7 @@ var process = exports.process = function process(tuples) {
 };
 
 exports.default = { TYPE: TYPE, process: process };
-},{"./common":10}],14:[function(require,module,exports){
+},{"./common":11}],15:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -915,7 +1009,7 @@ var process = exports.process = function process(tuples) {
 };
 
 exports.default = { TYPE: TYPE, process: process };
-},{"./common":10}],15:[function(require,module,exports){
+},{"./common":11}],16:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -1005,7 +1099,7 @@ var process = exports.process = function process(tuples) {
 };
 
 exports.default = { TYPE: TYPE, process: process };
-},{"./common":10}],16:[function(require,module,exports){
+},{"./common":11}],17:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -1049,7 +1143,7 @@ var process = exports.process = function process(tuples) {
 };
 
 exports.default = { TYPE: TYPE, process: process };
-},{"./common":10}],17:[function(require,module,exports){
+},{"./common":11}],18:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -1088,7 +1182,7 @@ var process = exports.process = function process(tuples) {
 };
 
 exports.default = { TYPE: TYPE, process: process };
-},{"./common":10}],18:[function(require,module,exports){
+},{"./common":11}],19:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -1160,7 +1254,7 @@ var process = exports.process = function process(tuples) {
 };
 
 exports.default = { TYPE: TYPE, process: process };
-},{"./common":10}],19:[function(require,module,exports){
+},{"./common":11}],20:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -1242,7 +1336,7 @@ var process = exports.process = function process(tuples) {
 };
 
 exports.default = { TYPE: TYPE, process: process };
-},{"./common":10}],20:[function(require,module,exports){
+},{"./common":11}],21:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -1275,7 +1369,7 @@ var process = exports.process = function process(tuples) {
 };
 
 exports.default = { TYPE: TYPE, process: process };
-},{}],21:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -1333,7 +1427,7 @@ exports.default = function (tuples) {
 
   return header;
 };
-},{}],22:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -1473,7 +1567,7 @@ exports.default = function (tuples) {
     styles: tableHandler(stylesTuples, 'STYLE', styleHandler)
   };
 };
-},{"../util/logger":27}],23:[function(require,module,exports){
+},{"../util/logger":28}],24:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -1645,7 +1739,7 @@ exports.denormalise = _denormalise2.default;
 exports.groupEntitiesByLayer = _groupEntitiesByLayer2.default;
 exports.toSVG = _toSVG2.default;
 exports.entityToPolyline = _entityToPolyline2.default;
-},{"./BoundingBox":1,"./config":2,"./denormalise":3,"./entityToPolyline":4,"./groupEntitiesByLayer":5,"./handlers/blocks":6,"./handlers/entities":7,"./handlers/header":21,"./handlers/tables":22,"./toSVG":24,"./util/colors":25}],24:[function(require,module,exports){
+},{"./BoundingBox":1,"./config":3,"./denormalise":4,"./entityToPolyline":5,"./groupEntitiesByLayer":6,"./handlers/blocks":7,"./handlers/entities":8,"./handlers/header":22,"./handlers/tables":23,"./toSVG":25,"./util/colors":26}],25:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -1752,11 +1846,11 @@ exports.default = function (parsed) {
   svgString += ' width="100%" height="100%">' + paths.join('') + '</svg>';
   return _prettyData.pd.xml(svgString);
 };
-},{"./BoundingBox":1,"./denormalise":3,"./entityToPolyline":4,"./util/colors":25,"./util/logger":27,"pretty-data":42}],25:[function(require,module,exports){
+},{"./BoundingBox":1,"./denormalise":4,"./entityToPolyline":5,"./util/colors":26,"./util/logger":28,"pretty-data":41}],26:[function(require,module,exports){
 "use strict";
 
 module.exports = [[0, 0, 0], [255, 0, 0], [255, 255, 0], [0, 255, 0], [0, 255, 255], [0, 0, 255], [255, 0, 255], [255, 255, 255], [65, 65, 65], [128, 128, 128], [255, 0, 0], [255, 170, 170], [189, 0, 0], [189, 126, 126], [129, 0, 0], [129, 86, 86], [104, 0, 0], [104, 69, 69], [79, 0, 0], [79, 53, 53], [255, 63, 0], [255, 191, 170], [189, 46, 0], [189, 141, 126], [129, 31, 0], [129, 96, 86], [104, 25, 0], [104, 78, 69], [79, 19, 0], [79, 59, 53], [255, 127, 0], [255, 212, 170], [189, 94, 0], [189, 157, 126], [129, 64, 0], [129, 107, 86], [104, 52, 0], [104, 86, 69], [79, 39, 0], [79, 66, 53], [255, 191, 0], [255, 234, 170], [189, 141, 0], [189, 173, 126], [129, 96, 0], [129, 118, 86], [104, 78, 0], [104, 95, 69], [79, 59, 0], [79, 73, 53], [255, 255, 0], [255, 255, 170], [189, 189, 0], [189, 189, 126], [129, 129, 0], [129, 129, 86], [104, 104, 0], [104, 104, 69], [79, 79, 0], [79, 79, 53], [191, 255, 0], [234, 255, 170], [141, 189, 0], [173, 189, 126], [96, 129, 0], [118, 129, 86], [78, 104, 0], [95, 104, 69], [59, 79, 0], [73, 79, 53], [127, 255, 0], [212, 255, 170], [94, 189, 0], [157, 189, 126], [64, 129, 0], [107, 129, 86], [52, 104, 0], [86, 104, 69], [39, 79, 0], [66, 79, 53], [63, 255, 0], [191, 255, 170], [46, 189, 0], [141, 189, 126], [31, 129, 0], [96, 129, 86], [25, 104, 0], [78, 104, 69], [19, 79, 0], [59, 79, 53], [0, 255, 0], [170, 255, 170], [0, 189, 0], [126, 189, 126], [0, 129, 0], [86, 129, 86], [0, 104, 0], [69, 104, 69], [0, 79, 0], [53, 79, 53], [0, 255, 63], [170, 255, 191], [0, 189, 46], [126, 189, 141], [0, 129, 31], [86, 129, 96], [0, 104, 25], [69, 104, 78], [0, 79, 19], [53, 79, 59], [0, 255, 127], [170, 255, 212], [0, 189, 94], [126, 189, 157], [0, 129, 64], [86, 129, 107], [0, 104, 52], [69, 104, 86], [0, 79, 39], [53, 79, 66], [0, 255, 191], [170, 255, 234], [0, 189, 141], [126, 189, 173], [0, 129, 96], [86, 129, 118], [0, 104, 78], [69, 104, 95], [0, 79, 59], [53, 79, 73], [0, 255, 255], [170, 255, 255], [0, 189, 189], [126, 189, 189], [0, 129, 129], [86, 129, 129], [0, 104, 104], [69, 104, 104], [0, 79, 79], [53, 79, 79], [0, 191, 255], [170, 234, 255], [0, 141, 189], [126, 173, 189], [0, 96, 129], [86, 118, 129], [0, 78, 104], [69, 95, 104], [0, 59, 79], [53, 73, 79], [0, 127, 255], [170, 212, 255], [0, 94, 189], [126, 157, 189], [0, 64, 129], [86, 107, 129], [0, 52, 104], [69, 86, 104], [0, 39, 79], [53, 66, 79], [0, 63, 255], [170, 191, 255], [0, 46, 189], [126, 141, 189], [0, 31, 129], [86, 96, 129], [0, 25, 104], [69, 78, 104], [0, 19, 79], [53, 59, 79], [0, 0, 255], [170, 170, 255], [0, 0, 189], [126, 126, 189], [0, 0, 129], [86, 86, 129], [0, 0, 104], [69, 69, 104], [0, 0, 79], [53, 53, 79], [63, 0, 255], [191, 170, 255], [46, 0, 189], [141, 126, 189], [31, 0, 129], [96, 86, 129], [25, 0, 104], [78, 69, 104], [19, 0, 79], [59, 53, 79], [127, 0, 255], [212, 170, 255], [94, 0, 189], [157, 126, 189], [64, 0, 129], [107, 86, 129], [52, 0, 104], [86, 69, 104], [39, 0, 79], [66, 53, 79], [191, 0, 255], [234, 170, 255], [141, 0, 189], [173, 126, 189], [96, 0, 129], [118, 86, 129], [78, 0, 104], [95, 69, 104], [59, 0, 79], [73, 53, 79], [255, 0, 255], [255, 170, 255], [189, 0, 189], [189, 126, 189], [129, 0, 129], [129, 86, 129], [104, 0, 104], [104, 69, 104], [79, 0, 79], [79, 53, 79], [255, 0, 191], [255, 170, 234], [189, 0, 141], [189, 126, 173], [129, 0, 96], [129, 86, 118], [104, 0, 78], [104, 69, 95], [79, 0, 59], [79, 53, 73], [255, 0, 127], [255, 170, 212], [189, 0, 94], [189, 126, 157], [129, 0, 64], [129, 86, 107], [104, 0, 52], [104, 69, 86], [79, 0, 39], [79, 53, 66], [255, 0, 63], [255, 170, 191], [189, 0, 46], [189, 126, 141], [129, 0, 31], [129, 86, 96], [104, 0, 25], [104, 69, 78], [79, 0, 19], [79, 53, 59], [51, 51, 51], [80, 80, 80], [105, 105, 105], [130, 130, 130], [190, 190, 190], [255, 255, 255]];
-},{}],26:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 'use strict';
 
 var _vecks = require('vecks');
@@ -1833,7 +1927,7 @@ module.exports = function (from, to, bulge, resolution) {
     return [p.x, p.y];
   });
 };
-},{"vecks":50}],27:[function(require,module,exports){
+},{"vecks":50}],28:[function(require,module,exports){
 'use strict';
 
 var config = require('../config');
@@ -1858,92 +1952,7 @@ module.exports.config = config;
 module.exports.info = info;
 module.exports.warn = warn;
 module.exports.error = error;
-},{"../config":2}],28:[function(require,module,exports){
-
-
-function interpolate(t, order, points, knots, weights, result) {
-
-  var i,j,s,l;              // function-scoped iteration variables
-  var n = points.length;    // points count
-  var d = points[0].length; // point dimensionality
-
-  if(order < 2) throw new Error('order must be at least 2 (linear)');
-  if(order > n) throw new Error('order must be less than point count');
-
-  if(!weights) {
-    // build weight vector of length [n]
-    weights = [];
-    for(i=0; i<n; i++) {
-      weights[i] = 1;
-    }
-  }
-
-  if(!knots) {
-    // build knot vector of length [n + order]
-    var knots = [];
-    for(i=0; i<n+order; i++) {
-      knots[i] = i;
-    }
-  } else {
-    if(knots.length !== n+order) throw new Error('bad knot vector length');
-  }
-
-  var domain = [
-    order-1,
-    knots.length-1 - (order-1)
-  ];
-
-  // remap t to the domain where the spline is defined
-  var low  = knots[domain[0]];
-  var high = knots[domain[1]];
-  t = t * (high - low) + low;
-
-  if(t < low || t > high) throw new Error('out of bounds');
-
-  // find s (the spline segment) for the [t] value provided
-  for(s=domain[0]; s<domain[1]; s++) {
-    if(t >= knots[s] && t <= knots[s+1]) {
-      break;
-    }
-  }
-
-  // convert points to homogeneous coordinates
-  var v = [];
-  for(i=0; i<n; i++) {
-    v[i] = [];
-    for(j=0; j<d; j++) {
-      v[i][j] = points[i][j] * weights[i];
-    }
-    v[i][d] = weights[i];
-  }
-
-  // l (level) goes from 1 to the curve order
-  var alpha;
-  for(l=1; l<=order; l++) {
-    // build level l of the pyramid
-    for(i=s; i>s-order+l; i--) {
-      alpha = (t - knots[i]) / (knots[i+order-l] - knots[i]);
-
-      // interpolate each component
-      for(j=0; j<d+1; j++) {
-        v[i][j] = (1 - alpha) * v[i-1][j] + alpha * v[i][j];
-      }
-    }
-  }
-
-  // convert back to cartesian and return
-  var result = result || [];
-  for(i=0; i<d; i++) {
-    result[i] = v[s][i] / v[s][d];
-  }
-
-  return result;
-}
-
-
-module.exports = interpolate;
-
-},{}],29:[function(require,module,exports){
+},{"../config":3}],29:[function(require,module,exports){
 /**
  * lodash 3.0.0 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -2036,245 +2045,7 @@ function baseAssign(object, source) {
 
 module.exports = baseAssign;
 
-},{"lodash._basecopy":35,"lodash.keys":32}],32:[function(require,module,exports){
-/**
- * lodash 3.1.2 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
-var getNative = require('lodash._getnative'),
-    isArguments = require('lodash.isarguments'),
-    isArray = require('lodash.isarray');
-
-/** Used to detect unsigned integer values. */
-var reIsUint = /^\d+$/;
-
-/** Used for native method references. */
-var objectProto = Object.prototype;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/* Native method references for those with the same name as other `lodash` methods. */
-var nativeKeys = getNative(Object, 'keys');
-
-/**
- * Used as the [maximum length](http://ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer)
- * of an array-like value.
- */
-var MAX_SAFE_INTEGER = 9007199254740991;
-
-/**
- * The base implementation of `_.property` without support for deep paths.
- *
- * @private
- * @param {string} key The key of the property to get.
- * @returns {Function} Returns the new function.
- */
-function baseProperty(key) {
-  return function(object) {
-    return object == null ? undefined : object[key];
-  };
-}
-
-/**
- * Gets the "length" property value of `object`.
- *
- * **Note:** This function is used to avoid a [JIT bug](https://bugs.webkit.org/show_bug.cgi?id=142792)
- * that affects Safari on at least iOS 8.1-8.3 ARM64.
- *
- * @private
- * @param {Object} object The object to query.
- * @returns {*} Returns the "length" value.
- */
-var getLength = baseProperty('length');
-
-/**
- * Checks if `value` is array-like.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
- */
-function isArrayLike(value) {
-  return value != null && isLength(getLength(value));
-}
-
-/**
- * Checks if `value` is a valid array-like index.
- *
- * @private
- * @param {*} value The value to check.
- * @param {number} [length=MAX_SAFE_INTEGER] The upper bounds of a valid index.
- * @returns {boolean} Returns `true` if `value` is a valid index, else `false`.
- */
-function isIndex(value, length) {
-  value = (typeof value == 'number' || reIsUint.test(value)) ? +value : -1;
-  length = length == null ? MAX_SAFE_INTEGER : length;
-  return value > -1 && value % 1 == 0 && value < length;
-}
-
-/**
- * Checks if `value` is a valid array-like length.
- *
- * **Note:** This function is based on [`ToLength`](http://ecma-international.org/ecma-262/6.0/#sec-tolength).
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
- */
-function isLength(value) {
-  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
-}
-
-/**
- * A fallback implementation of `Object.keys` which creates an array of the
- * own enumerable property names of `object`.
- *
- * @private
- * @param {Object} object The object to query.
- * @returns {Array} Returns the array of property names.
- */
-function shimKeys(object) {
-  var props = keysIn(object),
-      propsLength = props.length,
-      length = propsLength && object.length;
-
-  var allowIndexes = !!length && isLength(length) &&
-    (isArray(object) || isArguments(object));
-
-  var index = -1,
-      result = [];
-
-  while (++index < propsLength) {
-    var key = props[index];
-    if ((allowIndexes && isIndex(key, length)) || hasOwnProperty.call(object, key)) {
-      result.push(key);
-    }
-  }
-  return result;
-}
-
-/**
- * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
- * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is an object, else `false`.
- * @example
- *
- * _.isObject({});
- * // => true
- *
- * _.isObject([1, 2, 3]);
- * // => true
- *
- * _.isObject(1);
- * // => false
- */
-function isObject(value) {
-  // Avoid a V8 JIT bug in Chrome 19-20.
-  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
-  var type = typeof value;
-  return !!value && (type == 'object' || type == 'function');
-}
-
-/**
- * Creates an array of the own enumerable property names of `object`.
- *
- * **Note:** Non-object values are coerced to objects. See the
- * [ES spec](http://ecma-international.org/ecma-262/6.0/#sec-object.keys)
- * for more details.
- *
- * @static
- * @memberOf _
- * @category Object
- * @param {Object} object The object to query.
- * @returns {Array} Returns the array of property names.
- * @example
- *
- * function Foo() {
- *   this.a = 1;
- *   this.b = 2;
- * }
- *
- * Foo.prototype.c = 3;
- *
- * _.keys(new Foo);
- * // => ['a', 'b'] (iteration order is not guaranteed)
- *
- * _.keys('hi');
- * // => ['0', '1']
- */
-var keys = !nativeKeys ? shimKeys : function(object) {
-  var Ctor = object == null ? undefined : object.constructor;
-  if ((typeof Ctor == 'function' && Ctor.prototype === object) ||
-      (typeof object != 'function' && isArrayLike(object))) {
-    return shimKeys(object);
-  }
-  return isObject(object) ? nativeKeys(object) : [];
-};
-
-/**
- * Creates an array of the own and inherited enumerable property names of `object`.
- *
- * **Note:** Non-object values are coerced to objects.
- *
- * @static
- * @memberOf _
- * @category Object
- * @param {Object} object The object to query.
- * @returns {Array} Returns the array of property names.
- * @example
- *
- * function Foo() {
- *   this.a = 1;
- *   this.b = 2;
- * }
- *
- * Foo.prototype.c = 3;
- *
- * _.keysIn(new Foo);
- * // => ['a', 'b', 'c'] (iteration order is not guaranteed)
- */
-function keysIn(object) {
-  if (object == null) {
-    return [];
-  }
-  if (!isObject(object)) {
-    object = Object(object);
-  }
-  var length = object.length;
-  length = (length && isLength(length) &&
-    (isArray(object) || isArguments(object)) && length) || 0;
-
-  var Ctor = object.constructor,
-      index = -1,
-      isProto = typeof Ctor == 'function' && Ctor.prototype === object,
-      result = Array(length),
-      skipIndexes = length > 0;
-
-  while (++index < length) {
-    result[index] = (index + '');
-  }
-  for (var key in object) {
-    if (!(skipIndexes && isIndex(key, length)) &&
-        !(key == 'constructor' && (isProto || !hasOwnProperty.call(object, key)))) {
-      result.push(key);
-    }
-  }
-  return result;
-}
-
-module.exports = keys;
-
-},{"lodash._getnative":38,"lodash.isarguments":40,"lodash.isarray":41}],33:[function(require,module,exports){
+},{"lodash._basecopy":33,"lodash.keys":40}],32:[function(require,module,exports){
 (function (global){
 /**
  * lodash 3.3.0 (Custom Build) <https://lodash.com/>
@@ -2549,9 +2320,7 @@ function isObject(value) {
 module.exports = baseClone;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"lodash._arraycopy":29,"lodash._arrayeach":30,"lodash._baseassign":31,"lodash._basefor":36,"lodash.isarray":41,"lodash.keys":34}],34:[function(require,module,exports){
-arguments[4][32][0].apply(exports,arguments)
-},{"dup":32,"lodash._getnative":38,"lodash.isarguments":40,"lodash.isarray":41}],35:[function(require,module,exports){
+},{"lodash._arraycopy":29,"lodash._arrayeach":30,"lodash._baseassign":31,"lodash._basefor":34,"lodash.isarray":39,"lodash.keys":40}],33:[function(require,module,exports){
 /**
  * lodash 3.0.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -2585,7 +2354,7 @@ function baseCopy(source, props, object) {
 
 module.exports = baseCopy;
 
-},{}],36:[function(require,module,exports){
+},{}],34:[function(require,module,exports){
 /**
  * lodash 3.0.3 (Custom Build) <https://lodash.com/>
  * Build: `lodash modularize exports="npm" -o ./`
@@ -2635,7 +2404,7 @@ function createBaseFor(fromRight) {
 
 module.exports = baseFor;
 
-},{}],37:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 /**
  * lodash 3.0.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -2702,7 +2471,7 @@ function identity(value) {
 
 module.exports = bindCallback;
 
-},{}],38:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 /**
  * lodash 3.9.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -2841,7 +2610,7 @@ function isNative(value) {
 
 module.exports = getNative;
 
-},{}],39:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 /**
  * lodash 3.0.2 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -2906,7 +2675,7 @@ function cloneDeep(value, customizer, thisArg) {
 
 module.exports = cloneDeep;
 
-},{"lodash._baseclone":33,"lodash._bindcallback":37}],40:[function(require,module,exports){
+},{"lodash._baseclone":32,"lodash._bindcallback":35}],38:[function(require,module,exports){
 /**
  * lodash (Custom Build) <https://lodash.com/>
  * Build: `lodash modularize exports="npm" -o ./`
@@ -3137,7 +2906,7 @@ function isObjectLike(value) {
 
 module.exports = isArguments;
 
-},{}],41:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 /**
  * lodash 3.0.4 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -3319,7 +3088,245 @@ function isNative(value) {
 
 module.exports = isArray;
 
-},{}],42:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
+/**
+ * lodash 3.1.2 (Custom Build) <https://lodash.com/>
+ * Build: `lodash modern modularize exports="npm" -o ./`
+ * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ * Available under MIT license <https://lodash.com/license>
+ */
+var getNative = require('lodash._getnative'),
+    isArguments = require('lodash.isarguments'),
+    isArray = require('lodash.isarray');
+
+/** Used to detect unsigned integer values. */
+var reIsUint = /^\d+$/;
+
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/* Native method references for those with the same name as other `lodash` methods. */
+var nativeKeys = getNative(Object, 'keys');
+
+/**
+ * Used as the [maximum length](http://ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer)
+ * of an array-like value.
+ */
+var MAX_SAFE_INTEGER = 9007199254740991;
+
+/**
+ * The base implementation of `_.property` without support for deep paths.
+ *
+ * @private
+ * @param {string} key The key of the property to get.
+ * @returns {Function} Returns the new function.
+ */
+function baseProperty(key) {
+  return function(object) {
+    return object == null ? undefined : object[key];
+  };
+}
+
+/**
+ * Gets the "length" property value of `object`.
+ *
+ * **Note:** This function is used to avoid a [JIT bug](https://bugs.webkit.org/show_bug.cgi?id=142792)
+ * that affects Safari on at least iOS 8.1-8.3 ARM64.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @returns {*} Returns the "length" value.
+ */
+var getLength = baseProperty('length');
+
+/**
+ * Checks if `value` is array-like.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
+ */
+function isArrayLike(value) {
+  return value != null && isLength(getLength(value));
+}
+
+/**
+ * Checks if `value` is a valid array-like index.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @param {number} [length=MAX_SAFE_INTEGER] The upper bounds of a valid index.
+ * @returns {boolean} Returns `true` if `value` is a valid index, else `false`.
+ */
+function isIndex(value, length) {
+  value = (typeof value == 'number' || reIsUint.test(value)) ? +value : -1;
+  length = length == null ? MAX_SAFE_INTEGER : length;
+  return value > -1 && value % 1 == 0 && value < length;
+}
+
+/**
+ * Checks if `value` is a valid array-like length.
+ *
+ * **Note:** This function is based on [`ToLength`](http://ecma-international.org/ecma-262/6.0/#sec-tolength).
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
+ */
+function isLength(value) {
+  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
+}
+
+/**
+ * A fallback implementation of `Object.keys` which creates an array of the
+ * own enumerable property names of `object`.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names.
+ */
+function shimKeys(object) {
+  var props = keysIn(object),
+      propsLength = props.length,
+      length = propsLength && object.length;
+
+  var allowIndexes = !!length && isLength(length) &&
+    (isArray(object) || isArguments(object));
+
+  var index = -1,
+      result = [];
+
+  while (++index < propsLength) {
+    var key = props[index];
+    if ((allowIndexes && isIndex(key, length)) || hasOwnProperty.call(object, key)) {
+      result.push(key);
+    }
+  }
+  return result;
+}
+
+/**
+ * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
+ * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @example
+ *
+ * _.isObject({});
+ * // => true
+ *
+ * _.isObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isObject(1);
+ * // => false
+ */
+function isObject(value) {
+  // Avoid a V8 JIT bug in Chrome 19-20.
+  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
+  var type = typeof value;
+  return !!value && (type == 'object' || type == 'function');
+}
+
+/**
+ * Creates an array of the own enumerable property names of `object`.
+ *
+ * **Note:** Non-object values are coerced to objects. See the
+ * [ES spec](http://ecma-international.org/ecma-262/6.0/#sec-object.keys)
+ * for more details.
+ *
+ * @static
+ * @memberOf _
+ * @category Object
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names.
+ * @example
+ *
+ * function Foo() {
+ *   this.a = 1;
+ *   this.b = 2;
+ * }
+ *
+ * Foo.prototype.c = 3;
+ *
+ * _.keys(new Foo);
+ * // => ['a', 'b'] (iteration order is not guaranteed)
+ *
+ * _.keys('hi');
+ * // => ['0', '1']
+ */
+var keys = !nativeKeys ? shimKeys : function(object) {
+  var Ctor = object == null ? undefined : object.constructor;
+  if ((typeof Ctor == 'function' && Ctor.prototype === object) ||
+      (typeof object != 'function' && isArrayLike(object))) {
+    return shimKeys(object);
+  }
+  return isObject(object) ? nativeKeys(object) : [];
+};
+
+/**
+ * Creates an array of the own and inherited enumerable property names of `object`.
+ *
+ * **Note:** Non-object values are coerced to objects.
+ *
+ * @static
+ * @memberOf _
+ * @category Object
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names.
+ * @example
+ *
+ * function Foo() {
+ *   this.a = 1;
+ *   this.b = 2;
+ * }
+ *
+ * Foo.prototype.c = 3;
+ *
+ * _.keysIn(new Foo);
+ * // => ['a', 'b', 'c'] (iteration order is not guaranteed)
+ */
+function keysIn(object) {
+  if (object == null) {
+    return [];
+  }
+  if (!isObject(object)) {
+    object = Object(object);
+  }
+  var length = object.length;
+  length = (length && isLength(length) &&
+    (isArray(object) || isArguments(object)) && length) || 0;
+
+  var Ctor = object.constructor,
+      index = -1,
+      isProto = typeof Ctor == 'function' && Ctor.prototype === object,
+      result = Array(length),
+      skipIndexes = length > 0;
+
+  while (++index < length) {
+    result[index] = (index + '');
+  }
+  for (var key in object) {
+    if (!(skipIndexes && isIndex(key, length)) &&
+        !(key == 'constructor' && (isProto || !hasOwnProperty.call(object, key)))) {
+      result.push(key);
+    }
+  }
+  return result;
+}
+
+module.exports = keys;
+
+},{"lodash._getnative":36,"lodash.isarguments":38,"lodash.isarray":39}],41:[function(require,module,exports){
 /**
 * pretty-data - nodejs plugin to pretty-print or minify data in XML, JSON and CSS formats.
 *  
@@ -3665,7 +3672,7 @@ exports.pd= new pp;
 
 
 
-},{}],43:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3722,7 +3729,7 @@ Box2.fromPoints = function (points) {
 };
 
 exports.default = Box2;
-},{"./V2":48}],44:[function(require,module,exports){
+},{"./V2":48}],43:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -3789,7 +3796,7 @@ Box3.fromPoints = function (points) {
 };
 
 exports.default = Box3;
-},{}],45:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3910,7 +3917,62 @@ var Line2 = function () {
 }();
 
 exports.default = Line2;
-},{"./V2":48}],46:[function(require,module,exports){
+},{"./V2":48}],45:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _V = require('./V3');
+
+var _V2 = _interopRequireDefault(_V);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var dist = function dist(a, b) {
+  return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2) + Math.pow(a.z - b.z, 2));
+};
+
+var Line3 = function () {
+  function Line3(a, b) {
+    _classCallCheck(this, Line3);
+
+    if ((typeof a === 'undefined' ? 'undefined' : _typeof(a)) !== 'object' || a.x === undefined || a.y === undefined || a.z === undefined) {
+      throw Error('expected first argument to have x, y and z properties');
+    }
+    if ((typeof b === 'undefined' ? 'undefined' : _typeof(b)) !== 'object' || b.x === undefined || b.y === undefined || b.y === undefined) {
+      throw Error('expected second argument to have x, y and z properties');
+    }
+    this.a = new _V2.default(a);
+    this.b = new _V2.default(b);
+  }
+
+  _createClass(Line3, [{
+    key: 'length',
+    value: function length() {
+      return this.a.sub(this.b).length();
+    }
+  }, {
+    key: 'containsPoint',
+    value: function containsPoint(point) {
+      var eps = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 1e-12;
+
+      return Math.abs(dist(this.a, this.b) - dist(point, this.a) - dist(point, this.b)) < eps;
+    }
+  }]);
+
+  return Line3;
+}();
+
+exports.default = Line3;
+},{"./V3":49}],46:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3970,27 +4032,27 @@ Plane3.fromPointAndNormal = function (p, n) {
 };
 
 Plane3.fromPoints = function (points) {
-  var validCross = void 0;
+  var firstCross = void 0;
   for (var i = 0, il = points.length; i < il; ++i) {
     var ab = points[(i + 1) % il].sub(points[i]);
     var bc = points[(i + 2) % il].sub(points[(i + 1) % il]);
     var cross = ab.cross(bc);
     if (!(isNaN(cross.length()) || cross.length() === 0)) {
-      if (!validCross) {
-        validCross = cross.norm();
+      if (!firstCross) {
+        firstCross = cross.norm();
       } else {
-        var same = cross.norm().equals(validCross);
-        var opposite = cross.neg().norm().equals(validCross);
+        var same = cross.norm().equals(firstCross, 1e-6);
+        var opposite = cross.neg().norm().equals(firstCross, 1e-6);
         if (!(same || opposite)) {
           throw Error('points not on a plane');
         }
       }
     }
   }
-  if (!validCross) {
+  if (!firstCross) {
     throw Error('points not on a plane');
   }
-  return Plane3.fromPointAndNormal(points[0], validCross.norm());
+  return Plane3.fromPointAndNormal(points[0], firstCross.norm());
 };
 
 exports.default = Plane3;
@@ -4152,6 +4214,10 @@ var V3 = function () {
       this.x = x.x;
       this.y = x.y;
       this.z = x.z;
+    } else if (x === undefined) {
+      this.x = 0;
+      this.y = 0;
+      this.z = 0;
     } else {
       this.x = x;
       this.y = y;
@@ -4161,8 +4227,11 @@ var V3 = function () {
 
   _createClass(V3, [{
     key: 'equals',
-    value: function equals(other) {
-      return this.x === other.x && this.y === other.y && this.z === other.z;
+    value: function equals(other, eps) {
+      if (eps === undefined) {
+        eps = 0;
+      }
+      return Math.abs(this.x - other.x) <= eps && Math.abs(this.y - other.y) <= eps && Math.abs(this.z - other.z) <= eps;
     }
   }, {
     key: 'length',
@@ -4216,7 +4285,7 @@ exports.default = V3;
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.Line2 = exports.Quaternion = exports.Plane3 = exports.Box3 = exports.Box2 = exports.V3 = exports.V2 = undefined;
+exports.Line3 = exports.Line2 = exports.Quaternion = exports.Plane3 = exports.Box3 = exports.Box2 = exports.V3 = exports.V2 = undefined;
 
 var _V = require('./V2');
 
@@ -4246,6 +4315,10 @@ var _Line = require('./Line2');
 
 var _Line2 = _interopRequireDefault(_Line);
 
+var _Line3 = require('./Line3');
+
+var _Line4 = _interopRequireDefault(_Line3);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 exports.V2 = _V2.default;
@@ -4255,5 +4328,6 @@ exports.Box3 = _Box4.default;
 exports.Plane3 = _Plane2.default;
 exports.Quaternion = _Quaternion2.default;
 exports.Line2 = _Line2.default;
-},{"./Box2":43,"./Box3":44,"./Line2":45,"./Plane3":46,"./Quaternion":47,"./V2":48,"./V3":49}]},{},[23])(23)
+exports.Line3 = _Line4.default;
+},{"./Box2":42,"./Box3":43,"./Line2":44,"./Line3":45,"./Plane3":46,"./Quaternion":47,"./V2":48,"./V3":49}]},{},[24])(24)
 });
