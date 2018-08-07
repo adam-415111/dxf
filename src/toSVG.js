@@ -14,6 +14,9 @@ const USE_STROKE_PERCENT = true
 const STROKE_WIDTH_PERCENT = 0.3 // Stroke width relative to viewport
 const STROKE_WIDTH_ABS = 10 // Stroke width absolute value
 
+const TEXT_FILL = 'red'
+const TEXT_STROKE = 'black'
+
 const polylineToPath = (rgb, polyline) => {
   const color24bit = rgb[2] | (rgb[1] << 8) | (rgb[0] << 16)
   let prepad = color24bit.toString(16)
@@ -58,7 +61,7 @@ function applyTransforms(entity) {
         y = y + transform.y;
       }
   })
-  return {x: x, y: y - entity.nominalTextHeight}
+  return {x: x - entity.refRectangleWidth / 4, y: y - entity.nominalTextHeight}
 }
 
 /**
@@ -105,9 +108,9 @@ export default (parsed) => {
       if (e.transforms.length >= 1) {
         point = applyTransforms(e);
       } else {
-        point = {x: e.x, y: e.y - e.nominalTextHeight}
+        point = {x: e.x - e.refRectangleWidth / 4, y: e.y - e.nominalTextHeight}
       }
-      const attributes = {fill: 'red', stroke: 'black'}
+      const attributes = { fill: TEXT_FILL, stroke: TEXT_STROKE }
       const options = {x: point.x, y: -point.y, fontSize: e.nominalTextHeight, attributes: attributes}
       paths.push(textToSVG.getPath(e.string, options))
     }
