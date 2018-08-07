@@ -6,6 +6,9 @@ import entityToPolyline from './entityToPolyline'
 import colors from './util/colors'
 import logger from './util/logger'
 
+const TextToSVG = require('text-to-svg');
+const textToSVG = TextToSVG.loadSync();
+
 const ALL_BLACK = true // Paint all lines black
 const USE_STROKE_PERCENT = true
 const STROKE_WIDTH_PERCENT = 0.3 // Stroke width relative to viewport
@@ -34,6 +37,28 @@ const polylineToPath = (rgb, polyline) => {
   }, '')
   return USE_STROKE_PERCENT ? '<path fill="none" stroke="' + hex + '" stroke-width="' + STROKE_WIDTH_PERCENT + '%" d="' + d + '"/>'
     : '<path fill="none" stroke="' + hex + '" stroke-width="' + STROKE_WIDTH_ABS + '" d="' + d + '"/>'
+}
+
+function applyTransforms(entity) {
+  let x = entity.x;
+  let y = entity.y;
+  entity.transforms.forEach(transform => {
+   /*   if (transform.xScale) {
+        x = x * transform.xScale
+      }
+      if (transform.yScale) {
+        y = y * transform.yScale
+      }
+      */
+
+      if (transform.x) {
+        x = x + transform.x;
+      }
+      if (transform.y) {
+        y = y + transform.y;
+      }
+  })
+  return {x: x, y: y - entity.nominalTextHeight}
 }
 
 /**
@@ -74,6 +99,20 @@ export default (parsed) => {
     paths.push(polylineToPath(rgb, p2))
   })
 
+  entities.map(e => {
+    if (e.type === 'MTEXT' && e.string) {
+      let point;
+      if (e.transforms.length >= 1) {
+        point = applyTransforms(e);
+      } else {
+        point = {x: e.x, y: e.y - e.nominalTextHeight}
+      }
+      const attributes = {fill: 'red', stroke: 'black'}
+      const options = {x: point.x, y: -point.y, fontSize: e.nominalTextHeight, attributes: attributes}
+      paths.push(textToSVG.getPath(e.string, options))
+    }
+   })
+   
   let svgString = '<?xml version="1.0"?>'
   svgString += '<svg xmlns="http://www.w3.org/2000/svg"'
   svgString += ' xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1"'

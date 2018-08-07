@@ -8,11 +8,11 @@ function interpolate(t, degree, points, knots, weights, result) {
 
   if(degree < 1) {
     degree = 1;
-    console.log('Warning: Degree must be at least 1 (linear). Setting to 1.');
+    //console.log('Warning: Degree must be at least 1 (linear). Setting to 1.');
   }
   if(degree > (n-1)) {
     degree = n-1;
-    console.log('Warning: Degree must be less than or equal to point count - 1.');
+   // console.log('Warning: Degree must be less than or equal to point count - 1.');
   }
 
   if(!weights) {
@@ -30,7 +30,7 @@ function interpolate(t, degree, points, knots, weights, result) {
       knots[i] = i;
     }
   } else {
-    if(knots.length !== n+degree+1) console.log('Warning: bad knot vector length');
+    if(knots.length !== n+degree+1); //console.log('Warning: bad knot vector length');
   }
 
   var domain = [
