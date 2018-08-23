@@ -94,7 +94,7 @@ var BoundingBox = function () {
 
 exports.default = BoundingBox;
 },{}],2:[function(require,module,exports){
-'use strict';
+"use strict";
 
 function interpolate(t, degree, points, knots, weights, result) {
 
@@ -138,10 +138,10 @@ function interpolate(t, degree, points, knots, weights, result) {
 
   if (t < low) {
     t = low;
-    console.log('Warning: Out of bounds!');
+    // console.log('Warning: Out of bounds!');
   } else if (t > high) {
     t = high;
-    console.log('Warning: Out of bounds!');
+    // console.log('Warning: Out of bounds!');
   }
 
   // find s (the spline segment) for the [t] value provided
@@ -1781,6 +1781,8 @@ var STROKE_WIDTH_ABS = 10; // Stroke width absolute value
 var TEXT_FILL = 'red';
 var TEXT_STROKE = 'black';
 
+var USE_LAYER_COLOR = false;
+
 var polylineToPath = function polylineToPath(rgb, polyline) {
   var color24bit = rgb[2] | rgb[1] << 8 | rgb[0] << 16;
   var prepad = color24bit.toString(16);
@@ -1852,8 +1854,13 @@ exports.default = function (parsed) {
       throw new Error('no layer table for layer:' + entity.layer);
     }
 
-    // TODO: not sure if this prioritization is good (entity color first, layer color as fallback)
-    var colorNumber = 'colorNumber' in entity ? entity.colorNumber : layerTable.colorNumber;
+    var colorNumber = void 0;
+    if (!USE_LAYER_COLOR) {
+      // TODO: not sure if this prioritization is good (entity color first, layer color as fallback)
+      colorNumber = 'colorNumber' in entity ? entity.colorNumber : layerTable.colorNumber;
+    } else {
+      colorNumber = layerTable.colorNumber;
+    }
     var rgb = _colors2.default[colorNumber];
     if (rgb === undefined) {
       _logger2.default.warn('Color index', colorNumber, 'invalid, defaulting to black');
@@ -1877,6 +1884,8 @@ exports.default = function (parsed) {
       var attributes = { fill: TEXT_FILL, stroke: TEXT_STROKE };
       var options = { x: point.x, y: -point.y, fontSize: e.nominalTextHeight, attributes: attributes };
       paths.push(textToSVG.getPath(e.string, options));
+    } else if (e.type === 'TEXT' && e.string) {
+      // TODO: TEXT (single line) - same format, at least for relevant values?
     }
   });
 

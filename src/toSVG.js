@@ -17,6 +17,8 @@ const STROKE_WIDTH_ABS = 10 // Stroke width absolute value
 const TEXT_FILL = 'red'
 const TEXT_STROKE = 'black'
 
+const USE_LAYER_COLOR = false;
+
 const polylineToPath = (rgb, polyline) => {
   const color24bit = rgb[2] | (rgb[1] << 8) | (rgb[0] << 16)
   let prepad = color24bit.toString(16)
@@ -38,7 +40,8 @@ const polylineToPath = (rgb, polyline) => {
     acc += point[0] + ',' + point[1]
     return acc
   }, '')
-  return USE_STROKE_PERCENT ? '<path fill="none" stroke="' + hex + '" stroke-width="' + STROKE_WIDTH_PERCENT + '%" d="' + d + '"/>'
+  return USE_STROKE_PERCENT ?
+      '<path fill="none" stroke="' + hex + '" stroke-width="' + STROKE_WIDTH_PERCENT + '%" d="' + d + '"/>'
     : '<path fill="none" stroke="' + hex + '" stroke-width="' + STROKE_WIDTH_ABS + '" d="' + d + '"/>'
 }
 
@@ -88,8 +91,13 @@ export default (parsed) => {
       throw new Error('no layer table for layer:' + entity.layer)
     }
 
-    // TODO: not sure if this prioritization is good (entity color first, layer color as fallback)
-    let colorNumber = ('colorNumber' in entity) ? entity.colorNumber : layerTable.colorNumber
+    let colorNumber;
+    if (!USE_LAYER_COLOR) {
+      // TODO: not sure if this prioritization is good (entity color first, layer color as fallback)
+      colorNumber = ('colorNumber' in entity) ? entity.colorNumber : layerTable.colorNumber
+    } else {
+      colorNumber = layerTable.colorNumber;
+    }
     let rgb = colors[colorNumber]
     if (rgb === undefined) {
       logger.warn('Color index', colorNumber, 'invalid, defaulting to black')
@@ -113,6 +121,8 @@ export default (parsed) => {
       const attributes = { fill: TEXT_FILL, stroke: TEXT_STROKE }
       const options = {x: point.x, y: -point.y, fontSize: e.nominalTextHeight, attributes: attributes}
       paths.push(textToSVG.getPath(e.string, options))
+    } else if (e.type === 'TEXT' && e.string) {
+       // TODO: TEXT (single line) - same format, at least for relevant values?
     }
    })
    

@@ -45,11 +45,11 @@ function interpolate(t, degree, points, knots, weights, result) {
 
   if(t < low) {
     t = low;
-    console.log('Warning: Out of bounds!');
+   // console.log('Warning: Out of bounds!');
   }
   else if(t > high) {
     t = high;
-    console.log('Warning: Out of bounds!');
+    // console.log('Warning: Out of bounds!');
   }
 
   // find s (the spline segment) for the [t] value provided
