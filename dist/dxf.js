@@ -1775,10 +1775,10 @@ var textToSVG = TextToSVG.loadSync();
 
 var ALL_BLACK = true; // Paint all lines black
 var USE_STROKE_PERCENT = true;
-var STROKE_WIDTH_PERCENT = 0.3; // Stroke width relative to viewport
+var STROKE_WIDTH_PERCENT = 0.1; // Stroke width relative to viewport
 var STROKE_WIDTH_ABS = 10; // Stroke width absolute value
 
-var TEXT_FILL = 'red';
+var TEXT_FILL = 'black';
 var TEXT_STROKE = 'black';
 
 var USE_LAYER_COLOR = false;

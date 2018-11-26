@@ -11,10 +11,10 @@ const textToSVG = TextToSVG.loadSync();
 
 const ALL_BLACK = true // Paint all lines black
 const USE_STROKE_PERCENT = true
-const STROKE_WIDTH_PERCENT = 0.3 // Stroke width relative to viewport
+const STROKE_WIDTH_PERCENT = 0.1 // Stroke width relative to viewport
 const STROKE_WIDTH_ABS = 10 // Stroke width absolute value
 
-const TEXT_FILL = 'red'
+const TEXT_FILL = 'black'
 const TEXT_STROKE = 'black'
 
 const USE_LAYER_COLOR = false;
