@@ -9,7 +9,7 @@ import logger from './util/logger'
 const TextToSVG = require('text-to-svg');
 const textToSVG = TextToSVG.loadSync();
 
-const ALL_BLACK = true // Paint all lines black
+const ALL_BLACK = false // Paint all lines black
 const USE_STROKE_PERCENT = true
 const STROKE_WIDTH_PERCENT = 0.1 // Stroke width relative to viewport
 const STROKE_WIDTH_ABS = 10 // Stroke width absolute value
@@ -125,7 +125,7 @@ export default (parsed) => {
        // TODO: TEXT (single line) - same format, at least for relevant values?
     }
    })
-   
+
   let svgString = '<?xml version="1.0"?>'
   svgString += '<svg xmlns="http://www.w3.org/2000/svg"'
   svgString += ' xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1"'
