@@ -930,6 +930,7 @@ var process = exports.process = function process(tuples) {
       case 30:
         entity.start.z = value;
         break;
+      case 370:
       case 39:
         entity.thickness = value;
         break;
@@ -990,6 +991,7 @@ var process = exports.process = function process(tuples) {
       case 20:
         vertex.y = value;
         break;
+      case 370:
       case 39:
         entity.thickness = value;
         break;
@@ -1167,6 +1169,7 @@ var process = exports.process = function process(tuples) {
       case 70:
         entity.closed = (value & 1) === 1;
         break;
+      case 370:
       case 39:
         entity.thickness = value;
         break;
@@ -1239,6 +1242,7 @@ var process = exports.process = function process(tuples) {
       case 33:
         entity.corners[3].z = value;
         break;
+      case 370:
       case 39:
         entity.thickness = value;
         break;
@@ -1774,7 +1778,7 @@ var TextToSVG = require('text-to-svg');
 var textToSVG = TextToSVG.loadSync();
 
 var ALL_BLACK = false; // Paint all lines black
-var USE_STROKE_PERCENT = true;
+var USE_STROKE_PERCENT = false;
 var STROKE_WIDTH_PERCENT = 0.1; // Stroke width relative to viewport
 var STROKE_WIDTH_ABS = 10; // Stroke width absolute value
 
@@ -1783,7 +1787,7 @@ var TEXT_STROKE = 'black';
 
 var USE_LAYER_COLOR = false;
 
-var polylineToPath = function polylineToPath(rgb, polyline) {
+var polylineToPath = function polylineToPath(rgb, polyline, thickness) {
   var color24bit = rgb[2] | rgb[1] << 8 | rgb[0] << 16;
   var prepad = color24bit.toString(16);
   for (var i = 0, il = 6 - prepad.length; i < il; ++i) {
@@ -1804,7 +1808,7 @@ var polylineToPath = function polylineToPath(rgb, polyline) {
     acc += point[0] + ',' + point[1];
     return acc;
   }, '');
-  return USE_STROKE_PERCENT ? '<path fill="none" stroke="' + hex + '" stroke-width="' + STROKE_WIDTH_PERCENT + '%" d="' + d + '"/>' : '<path fill="none" stroke="' + hex + '" stroke-width="' + STROKE_WIDTH_ABS + '" d="' + d + '"/>';
+  return USE_STROKE_PERCENT ? '<path fill="none" stroke="' + hex + '" stroke-width="' + STROKE_WIDTH_PERCENT + '%" d="' + d + '"/>' : '<path fill="none" stroke="' + hex + '" stroke-width="' + thickness + '" d="' + d + '"/>';
 };
 
 function applyTransforms(entity) {
@@ -1870,7 +1874,7 @@ exports.default = function (parsed) {
     var p2 = polyline.map(function (p) {
       return [p[0], -p[1]];
     });
-    paths.push(polylineToPath(rgb, p2));
+    paths.push(polylineToPath(rgb, p2, entity.thickness));
   });
 
   entities.map(function (e) {

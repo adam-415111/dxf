@@ -43,6 +43,7 @@ export const process = (tuples) => {
       case 33:
         entity.corners[3].z = value
         break
+      case 370:
       case 39:
         entity.thickness = value
         break

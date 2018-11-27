@@ -10,7 +10,7 @@ const TextToSVG = require('text-to-svg');
 const textToSVG = TextToSVG.loadSync();
 
 const ALL_BLACK = false // Paint all lines black
-const USE_STROKE_PERCENT = true
+const USE_STROKE_PERCENT = false
 const STROKE_WIDTH_PERCENT = 0.1 // Stroke width relative to viewport
 const STROKE_WIDTH_ABS = 10 // Stroke width absolute value
 
@@ -19,7 +19,7 @@ const TEXT_STROKE = 'black'
 
 const USE_LAYER_COLOR = false;
 
-const polylineToPath = (rgb, polyline) => {
+const polylineToPath = (rgb, polyline, thickness) => {
   const color24bit = rgb[2] | (rgb[1] << 8) | (rgb[0] << 16)
   let prepad = color24bit.toString(16)
   for (let i = 0, il = 6 - prepad.length; i < il; ++i) {
@@ -42,7 +42,7 @@ const polylineToPath = (rgb, polyline) => {
   }, '')
   return USE_STROKE_PERCENT ?
       '<path fill="none" stroke="' + hex + '" stroke-width="' + STROKE_WIDTH_PERCENT + '%" d="' + d + '"/>'
-    : '<path fill="none" stroke="' + hex + '" stroke-width="' + STROKE_WIDTH_ABS + '" d="' + d + '"/>'
+    : '<path fill="none" stroke="' + hex + '" stroke-width="' + thickness + '" d="' + d + '"/>'
 }
 
 function applyTransforms(entity) {
@@ -107,7 +107,7 @@ export default (parsed) => {
     const p2 = polyline.map(function (p) {
       return [p[0], -p[1]]
     })
-    paths.push(polylineToPath(rgb, p2))
+    paths.push(polylineToPath(rgb, p2, entity.thickness))
   })
 
   entities.map(e => {

@@ -10,6 +10,7 @@ export const process = (tuples) => {
       case 70:
         entity.closed = (value & 1) === 1
         break
+      case 370:
       case 39:
         entity.thickness = value
         break
